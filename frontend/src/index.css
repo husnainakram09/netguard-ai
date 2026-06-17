@@ -1,0 +1,317 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+/* ─── Design tokens ─────────────────────────────────────────── */
+@theme {
+  /* palette */
+  --color-bg:        #0a0e1a;
+  --color-card:      #0f1629;
+  --color-border:    #1a2744;
+  --color-cyan:      #00d4ff;
+  --color-green:     #00ff88;
+  --color-red:       #ff4444;
+  --color-orange:    #ffaa00;
+  --color-primary:   #e2e8f0;
+  --color-muted:     #64748b;
+  --color-cyan-dim:  #006b80;
+
+  /* data font */
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', Consolas, monospace;
+}
+
+/* ─── Base reset ─────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: #0a0e1a;
+  color: #e2e8f0;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Scrollbars ─────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 212, 255, 0.25);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(0, 212, 255, 0.5); }
+
+/* ─── Animated background ────────────────────────────────────── */
+/*
+   Signature element: radial grid lines emanating from the top-center
+   (like a broadcast origin or radar), plus a sweep arc that orbits.
+   One animation, kept subtle so data stays readable.
+*/
+.bg-radar {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background: #0a0e1a;
+}
+
+/* Radial grid: conic gradient rings */
+.bg-radar::before {
+  content: '';
+  position: absolute;
+  top: -60%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 200vw;
+  height: 200vw;
+  background:
+    radial-gradient(circle, transparent 18%, rgba(0,212,255,0.025) 18.5%, transparent 19%),
+    radial-gradient(circle, transparent 30%, rgba(0,212,255,0.02)  30.5%, transparent 31%),
+    radial-gradient(circle, transparent 42%, rgba(0,212,255,0.018) 42.5%, transparent 43%),
+    radial-gradient(circle, transparent 55%, rgba(0,212,255,0.015) 55.5%, transparent 56%),
+    radial-gradient(circle, transparent 68%, rgba(0,212,255,0.012) 68.5%, transparent 69%),
+    radial-gradient(circle, transparent 81%, rgba(0,212,255,0.01)  81.5%, transparent 82%);
+}
+
+/* Spoke lines: thin rays from the origin */
+.bg-radar::after {
+  content: '';
+  position: absolute;
+  top: -60%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 200vw;
+  height: 200vw;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg, transparent 8deg,
+    rgba(0,212,255,0.018) 8.5deg, transparent 9deg,
+    transparent 23deg,
+    rgba(0,212,255,0.018) 23.5deg, transparent 24deg,
+    transparent 38deg,
+    rgba(0,212,255,0.018) 38.5deg, transparent 39deg,
+    transparent 53deg,
+    rgba(0,212,255,0.018) 53.5deg, transparent 54deg,
+    transparent 68deg,
+    rgba(0,212,255,0.018) 68.5deg, transparent 69deg,
+    transparent 83deg,
+    rgba(0,212,255,0.018) 83.5deg, transparent 84deg,
+    transparent 98deg,
+    rgba(0,212,255,0.018) 98.5deg, transparent 99deg,
+    transparent 113deg,
+    rgba(0,212,255,0.018) 113.5deg, transparent 114deg,
+    transparent 128deg,
+    rgba(0,212,255,0.018) 128.5deg, transparent 129deg,
+    transparent 143deg,
+    rgba(0,212,255,0.018) 143.5deg, transparent 144deg,
+    transparent 158deg,
+    rgba(0,212,255,0.018) 158.5deg, transparent 159deg,
+    transparent 173deg,
+    rgba(0,212,255,0.018) 173.5deg, transparent 174deg,
+    transparent 188deg,
+    rgba(0,212,255,0.018) 188.5deg, transparent 189deg,
+    transparent 203deg,
+    rgba(0,212,255,0.018) 203.5deg, transparent 204deg,
+    transparent 218deg,
+    rgba(0,212,255,0.018) 218.5deg, transparent 219deg,
+    transparent 233deg,
+    rgba(0,212,255,0.018) 233.5deg, transparent 234deg,
+    transparent 248deg,
+    rgba(0,212,255,0.018) 248.5deg, transparent 249deg,
+    transparent 263deg,
+    rgba(0,212,255,0.018) 263.5deg, transparent 264deg,
+    transparent 278deg,
+    rgba(0,212,255,0.018) 278.5deg, transparent 279deg,
+    transparent 293deg,
+    rgba(0,212,255,0.018) 293.5deg, transparent 294deg,
+    transparent 308deg,
+    rgba(0,212,255,0.018) 308.5deg, transparent 309deg,
+    transparent 323deg,
+    rgba(0,212,255,0.018) 323.5deg, transparent 324deg,
+    transparent 338deg,
+    rgba(0,212,255,0.018) 338.5deg, transparent 339deg,
+    transparent 353deg,
+    rgba(0,212,255,0.018) 353.5deg, transparent 354deg
+  );
+  animation: radarSweep 16s linear infinite;
+}
+
+@keyframes radarSweep {
+  from { transform: translateX(-50%) rotate(0deg); }
+  to   { transform: translateX(-50%) rotate(360deg); }
+}
+
+/* Ambient glow from the broadcast origin */
+.bg-glow {
+  position: fixed;
+  top: -20vh;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80vw;
+  height: 60vh;
+  background: radial-gradient(ellipse at center,
+    rgba(0,212,255,0.04) 0%,
+    rgba(0,212,255,0.01) 40%,
+    transparent 70%
+  );
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Horizontal scan line that descends slowly */
+.scan-line {
+  position: fixed;
+  left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%, rgba(0,212,255,0.4) 30%,
+    rgba(0,212,255,0.7) 50%, rgba(0,212,255,0.4) 70%,
+    transparent 100%
+  );
+  z-index: 1;
+  pointer-events: none;
+  animation: scanDown 8s ease-in-out infinite;
+}
+
+@keyframes scanDown {
+  0%   { top: -2px; opacity: 0; }
+  5%   { opacity: 1; }
+  95%  { opacity: 0.6; }
+  100% { top: 100vh; opacity: 0; }
+}
+
+/* ─── Glow utilities ─────────────────────────────────────────── */
+.glow-cyan  { box-shadow: 0 0 16px rgba(0,212,255,0.35), 0 0 40px rgba(0,212,255,0.1); }
+.glow-green { box-shadow: 0 0 16px rgba(0,255,136,0.35); }
+.glow-red   { box-shadow: 0 0 16px rgba(255,68,68,0.35); }
+
+/* ─── Typography helpers ─────────────────────────────────────── */
+.font-data { font-family: var(--font-mono); }
+
+/* ─── Status indicators ─────────────────────────────────────── */
+@keyframes pulse-ring {
+  0%   { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+.live-dot {
+  position: relative;
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #00ff88;
+}
+
+.live-dot::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: #00ff88;
+  animation: pulse-ring 1.5s ease-out infinite;
+}
+
+/* ─── Card base ──────────────────────────────────────────────── */
+.card {
+  background: #0f1629;
+  border: 1px solid #1a2744;
+  border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Corner accent — top-left only, so it's subtle not symmetrical */
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 40px; height: 40px;
+  background: linear-gradient(135deg, rgba(0,212,255,0.12) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+/* ─── Threat-level badge colours ─────────────────────────────── */
+.badge-HIGH   { color: #ff4444; background: rgba(255,68,68,0.12);  border: 1px solid rgba(255,68,68,0.3);  }
+.badge-MEDIUM { color: #ffaa00; background: rgba(255,170,0,0.12); border: 1px solid rgba(255,170,0,0.3); }
+.badge-LOW    { color: #ffaa00; background: rgba(255,170,0,0.08); border: 1px solid rgba(255,170,0,0.2); }
+.badge-SAFE   { color: #00ff88; background: rgba(0,255,136,0.12); border: 1px solid rgba(0,255,136,0.3); }
+
+/* ─── Nav active state ───────────────────────────────────────── */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 6px;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  color: #64748b;
+  font-size: 0.875rem;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+}
+
+.nav-item:hover {
+  color: #e2e8f0;
+  background: rgba(255,255,255,0.03);
+  border-left-color: rgba(0,212,255,0.3);
+}
+
+.nav-item.active {
+  color: #00d4ff;
+  background: rgba(0,212,255,0.08);
+  border-left-color: #00d4ff;
+  box-shadow: inset 0 0 20px rgba(0,212,255,0.04);
+}
+
+/* ─── Data table ─────────────────────────────────────────────── */
+.data-table th {
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #64748b;
+  font-weight: 500;
+  padding: 8px 12px;
+  border-bottom: 1px solid #1a2744;
+  text-align: left;
+}
+
+.data-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(26,39,68,0.5);
+  font-size: 0.8rem;
+}
+
+.data-table tr:last-child td { border-bottom: none; }
+
+.data-table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.data-table tbody tr:hover {
+  background: rgba(0,212,255,0.03);
+}
+
+/* ─── Importance bar ─────────────────────────────────────────── */
+.imp-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(0,212,255,0.15);
+  overflow: hidden;
+  position: relative;
+}
+
+.imp-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, rgba(0,212,255,0.6), #00d4ff);
+  transition: width 0.6s ease;
+}
