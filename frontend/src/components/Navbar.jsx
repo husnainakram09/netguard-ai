@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Menu, X } from 'lucide-react'
 
-export default function Navbar({ modelStatus, sidebarOpen, onMenuClick, isXL }) {
+export default function Navbar({ modelStatus, sidebarOpen, onMenuClick, isDesktop }) {
   const [time, setTime] = useState(new Date())
 
   useEffect(() => {
@@ -24,7 +24,7 @@ export default function Navbar({ modelStatus, sidebarOpen, onMenuClick, isXL }) 
       }}
     >
       {/* ── Logo ─────────────────────────────────────────── */}
-      {!isXL && (
+      {!isDesktop && (
         <button
           type="button"
           onClick={onMenuClick}

@@ -19,24 +19,24 @@ const PAGES = {
 const SIDEBAR_W = 224   // px — must match Sidebar's width
 
 /* ── xs/sm/md = mobile drawer, xl+ = always-open sidebar ─────── */
-function useIsXL() {
-  const [xl, setXL] = useState(() =>
-    typeof window !== 'undefined' && window.innerWidth >= 1280
+function useIsDesktop() {
+  const [desktop, setDesktop] = useState(() =>
+    typeof window !== 'undefined' && window.innerWidth >= 1024
   )
   useEffect(() => {
-    const mq = window.matchMedia('(min-width: 1280px)')
-    const handler = e => setXL(e.matches)
+    const mq = window.matchMedia('(min-width: 1024px)')
+    const handler = e => setDesktop(e.matches)
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)
   }, [])
-  return xl
+  return desktop
 }
 
 export default function App() {
   const [activePage,   setActivePage]   = useState('dashboard')
   const [sidebarOpen,  setSidebarOpen]  = useState(false)
   const [modelStatus,  setModelStatus]  = useState(null) // null|true|false
-  const isXL = useIsXL()
+  const isDesktop = useIsDesktop()
 
   /* Health check — shared so Navbar shows real status */
   const checkHealth = useCallback(async () => {
@@ -79,12 +79,12 @@ export default function App() {
           modelStatus={modelStatus}
           sidebarOpen={sidebarOpen}
           onMenuClick={() => setSidebarOpen(o => !o)}
-          isXL={isXL}
+          isDesktop={isDesktop}
         />
 
         {/* ── Mobile backdrop ─────────────────────────────── */}
         <AnimatePresence>
-          {!isXL && sidebarOpen && (
+          {!isDesktop && sidebarOpen && (
             <motion.div
               key="backdrop"
               initial={{ opacity: 0 }}
@@ -107,7 +107,7 @@ export default function App() {
           active={activePage}
           onNavigate={navigate}
           open={sidebarOpen}
-          isXL={isXL}
+          isDesktop={isDesktop}
         />
 
         {/* ── Main content ────────────────────────────────── */}
@@ -115,7 +115,7 @@ export default function App() {
           style={{
             position: 'absolute',
             top: 56,
-            left: isXL ? SIDEBAR_W : 0,
+            left: isDesktop ? SIDEBAR_W : 0,
             right: 0,
             bottom: 0,
             overflowY: 'auto',
