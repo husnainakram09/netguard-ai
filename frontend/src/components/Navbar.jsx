@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
+import { Menu, X } from 'lucide-react'
 
-export default function Navbar() {
+export default function Navbar({ modelStatus, sidebarOpen, onMenuClick, isXL }) {
   const [time, setTime] = useState(new Date())
 
   useEffect(() => {
@@ -23,6 +24,24 @@ export default function Navbar() {
       }}
     >
       {/* ── Logo ─────────────────────────────────────────── */}
+      {!isXL && (
+        <button
+          type="button"
+          onClick={onMenuClick}
+          aria-label={sidebarOpen ? 'Close navigation' : 'Open navigation'}
+          aria-expanded={sidebarOpen}
+          className="flex items-center justify-center w-9 h-9 rounded"
+          style={{
+            color: '#00d4ff',
+            border: '1px solid rgba(0,212,255,0.25)',
+            background: sidebarOpen ? 'rgba(0,212,255,0.14)' : 'rgba(0,212,255,0.06)',
+            cursor: 'pointer',
+          }}
+        >
+          {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
+        </button>
+      )}
+
       <div className="flex items-center gap-3 flex-shrink-0">
         <div
           className="flex items-center justify-center w-8 h-8 rounded text-sm"
@@ -65,12 +84,12 @@ export default function Navbar() {
           <span
             className="text-xs tracking-widest uppercase px-2 py-0.5 rounded font-data"
             style={{
-              color: '#00ff88',
-              background: 'rgba(0,255,136,0.08)',
-              border: '1px solid rgba(0,255,136,0.25)',
+              color: modelStatus === false ? '#ff4444' : '#00ff88',
+              background: modelStatus === false ? 'rgba(255,68,68,0.08)' : 'rgba(0,255,136,0.08)',
+              border: modelStatus === false ? '1px solid rgba(255,68,68,0.25)' : '1px solid rgba(0,255,136,0.25)',
             }}
           >
-            MODEL ACTIVE
+            {modelStatus === false ? 'MODEL OFFLINE' : 'MODEL ACTIVE'}
           </span>
         </div>
 
