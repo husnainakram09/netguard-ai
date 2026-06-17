@@ -59,13 +59,15 @@ const MODEL_STATS = [
   { label: 'Training rows', value: '180,568',        color: '#e2e8f0' },
 ]
 
-export default function Sidebar({ active, onNavigate }) {
+export default function Sidebar({ active, onNavigate, open = false, isXL = false }) {
   return (
     <aside
       className="fixed left-0 top-14 bottom-0 z-40 flex flex-col w-56"
       style={{
         background: 'rgba(10,14,26,0.98)',
         borderRight: '1px solid #1a2744',
+        transform: isXL || open ? 'translateX(0)' : 'translateX(-100%)',
+        transition: 'transform 0.25s ease',
       }}
     >
       {/* Section label */}
