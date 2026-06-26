@@ -3,8 +3,10 @@ import sys
 import pandas as pd
 import kagglehub
 
-DATASET = "chethuhn/network-intrusion-dataset"
-FILE_NAME = "Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv"
+# DATASET = "chethuhn/network-intrusion-dataset"
+DATASET = "bertvankeulen/cicids-2017"
+# FILE_NAME = "Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv"
+FILE_NAME = "friday.csv"
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")

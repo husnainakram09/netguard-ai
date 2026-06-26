@@ -5,24 +5,39 @@ Endpoints:
   GET  /api/health          → model status
   POST /api/predict         → single-flow classification
   POST /api/analyze-batch   → multi-flow classification with summary
-  GET  /api/stats           → demo dashboard statistics
+  GET  /api/stats           → dashboard statistics from backend data
 """
 
 import logging
 import os
 import sys
+from datetime import datetime, timezone
 
 import joblib
 import numpy as np
 import pandas as pd
+from dotenv import load_dotenv
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+
+try:
+    from pymongo import MongoClient
+    from pymongo.errors import PyMongoError, ServerSelectionTimeoutError
+except ImportError:
+    MongoClient = None
+    PyMongoError = Exception
+    ServerSelectionTimeoutError = Exception
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 BASE_DIR    = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(BASE_DIR, ".env"))
+
 MODEL_PATH  = os.path.join(BASE_DIR, "model", "ids_model.pkl")
 SCALER_PATH = os.path.join(BASE_DIR, "model", "scaler.pkl")
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
+MONGO_DB = os.getenv("MONGO_DB", "netguard")
+MONGO_COLLECTION = os.getenv("MONGO_COLLECTION", "live_flows")
 
 # Must match the order used in train_model.py exactly.
 FEATURE_NAMES = [
@@ -56,6 +71,8 @@ log = logging.getLogger(__name__)
 _model       = None
 _scaler      = None
 _model_error: str | None = None
+_mongo_client = None
+_mongo_error: str | None = None
 
 try:
     _model  = joblib.load(MODEL_PATH)
@@ -69,6 +86,20 @@ try:
 except Exception as exc:
     _model_error = str(exc)
     log.warning("Could not load model/scaler: %s", _model_error)
+
+if MongoClient is None:
+    _mongo_error = "pymongo is not installed. Run: pip install -r requirements.txt"
+else:
+    try:
+        _mongo_client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=1500)
+        _mongo_client.admin.command("ping")
+        _mongo_client[MONGO_DB][MONGO_COLLECTION].create_index("ts")
+        _mongo_client[MONGO_DB][MONGO_COLLECTION].create_index([("status", 1), ("ts", -1)])
+        log.info("Connected to MongoDB at %s/%s.%s", MONGO_URI, MONGO_DB, MONGO_COLLECTION)
+    except Exception as exc:
+        _mongo_client = None
+        _mongo_error = str(exc)
+        log.warning("Could not connect to MongoDB: %s", _mongo_error)
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
@@ -142,6 +173,104 @@ def _validate_features(raw) -> tuple[list[float] | None, dict | None]:
         return None, {"error": "Feature values must be finite (no NaN or Infinity)"}
     return parsed, None
 
+
+def _utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
+
+
+def _mongo_collection():
+    if _mongo_client is None:
+        return None
+    return _mongo_client[MONGO_DB][MONGO_COLLECTION]
+
+
+def _mongo_status() -> dict:
+    if _mongo_client is None:
+        return {"connected": False, "error": _mongo_error}
+    return {
+        "connected": True,
+        "database": MONGO_DB,
+        "collection": MONGO_COLLECTION,
+    }
+
+
+def _flow_snapshot(features: list[float], result: dict, source: str, index: int | None = None) -> dict:
+    ts = _utc_now()
+    row = {
+        "ts": ts,
+        "source": source,
+        "duration": round(features[0] / 1_000_000, 3),
+        "pps": round(features[4], 2),
+        "bps": round(features[3], 1),
+        "status": result["prediction"],
+        "confidence": result.get("confidence"),
+        "attack_probability": result.get("attack_probability"),
+        "threat_level": result.get("threat_level"),
+    }
+    if index is not None:
+        row["index"] = index
+    return row
+
+
+def _record_prediction(features: list[float], result: dict, source: str, index: int | None = None) -> None:
+    collection = _mongo_collection()
+    if collection is None:
+        log.warning("Skipping live prediction write; MongoDB unavailable: %s", _mongo_error)
+        return
+    try:
+        collection.insert_one(_flow_snapshot(features, result, source, index))
+    except PyMongoError as exc:
+        log.warning("Could not write live prediction to MongoDB: %s", exc)
+
+
+def _serialize_live_row(row: dict) -> dict:
+    row["id"] = str(row.pop("_id", ""))
+    return row
+
+
+def _recent_live_flows(limit: int = 8) -> list[dict]:
+    collection = _mongo_collection()
+    if collection is None:
+        return []
+    try:
+        return [_serialize_live_row(row) for row in collection.find().sort("ts", -1).limit(limit)]
+    except PyMongoError as exc:
+        log.warning("Could not read live flows from MongoDB: %s", exc)
+        return []
+
+
+def _live_attacks_today() -> int:
+    collection = _mongo_collection()
+    if collection is None:
+        return 0
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    try:
+        return collection.count_documents({
+            "status": "ATTACK",
+            "ts": {"$gte": today_start.isoformat(timespec="milliseconds")},
+        })
+    except PyMongoError as exc:
+        log.warning("Could not count today's MongoDB attacks: %s", exc)
+        return 0
+
+
+def _live_summary() -> dict:
+    collection = _mongo_collection()
+    if collection is None:
+        return {"total_analyzed": 0, "attacks_blocked": 0, "benign": 0}
+    try:
+        total = collection.count_documents({})
+        attacks = collection.count_documents({"status": "ATTACK"})
+        benign = collection.count_documents({"status": "BENIGN"})
+        return {
+            "total_analyzed": total,
+            "attacks_blocked": attacks,
+            "benign": benign,
+        }
+    except PyMongoError as exc:
+        log.warning("Could not summarize MongoDB live flows: %s", exc)
+        return {"total_analyzed": 0, "attacks_blocked": 0, "benign": 0}
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @app.get("/")
@@ -159,6 +288,7 @@ def health():
     payload = {
         "status": "ok",
         "model":  "loaded" if _model_ready() else "unavailable",
+        "mongodb": _mongo_status(),
     }
     if _model_error:
         payload["error"] = _model_error
@@ -190,6 +320,7 @@ def predict():
         return jsonify(err), 400
 
     result = _classify_one(parsed)
+    _record_prediction(parsed, result, "single")
     return jsonify(result)
 
 
@@ -219,6 +350,8 @@ def analyze_batch():
         row         = _classify_one(parsed)
         row["index"] = idx
         results.append(row)
+        if idx < 100:
+            _record_prediction(parsed, row, "batch", idx)
 
     n_attacks = sum(1 for r in results if r["prediction"] == "ATTACK")
     n_benign  = len(results) - n_attacks
@@ -242,15 +375,31 @@ def analyze_batch():
 
 @app.get("/api/stats")
 def stats():
+    live = _live_summary()
+
     return jsonify(
-        total_analyzed=15_420,
-        attacks_blocked=342,
-        accuracy=0.98,
-        model_name="NetGuard-IDS v1.0",
-        dataset="CICIDS 2017",
+        total_analyzed=live["total_analyzed"],
+        attacks_blocked=live["attacks_blocked"],
+        benign=live["benign"],
+        attacks_today=_live_attacks_today(),
+        accuracy=0.9989,
+        f1_score=0.9991,
+        model_name=f"NetGuard-IDS {type(_model).__name__}" if _model_ready() else "NetGuard-IDS",
+        dataset="CICIDS 2017 Friday DDoS",
+        algorithm=type(_model).__name__ if _model_ready() else "RandomForestClassifier",
+        feature_count=FEATURE_COUNT,
+        training_rows=180_568,
+        test_rows=45_143,
+        recent_flows=_recent_live_flows(13),
+        feed_source="mongodb",
+        live_db=_mongo_status(),
     )
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    app.run(
+        host=os.getenv("FLASK_HOST", "127.0.0.1"),
+        port=int(os.getenv("FLASK_PORT", "5000")),
+        debug=os.getenv("FLASK_DEBUG", "true").lower() == "true",
+    )

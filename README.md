@@ -151,6 +151,9 @@ python download_data.py
 # Train the model (~30 s on a modern laptop)
 python train_model.py
 
+# Start MongoDB locally for live prediction storage.
+# Defaults live in backend/.env.
+
 # Start the API server
 python app.py                     # → http://localhost:5000
 ```
@@ -177,7 +180,7 @@ npm install           # Install all dependencies (including framer-motion, recha
 npm run dev           # → http://localhost:5173
 ```
 
-Open `http://localhost:5173` in your browser. The green "Model Online" dot in the navbar confirms the backend is reachable.
+Open `http://localhost:5173` in your browser. The frontend reads its API base URL from `frontend/.env.local`.
 
 ---
 
@@ -223,7 +226,24 @@ All endpoints return JSON. CORS is enabled for all origins.
 
 ### `GET /api/stats`
 
-Returns hardcoded demo statistics for the dashboard KPI cards.
+Returns live dashboard statistics and recent live prediction records from MongoDB. `/api/predict` and `/api/analyze-batch` store classifications in `netguard.live_flows` by default.
+
+MongoDB environment variables:
+
+```bash
+MONGO_URI=mongodb://localhost:27017
+MONGO_DB=netguard
+MONGO_COLLECTION=live_flows
+```
+
+Environment files:
+
+```text
+backend/.env
+backend/.env.example
+frontend/.env.local
+frontend/.env.example
+```
 
 ### `POST /api/predict`
 

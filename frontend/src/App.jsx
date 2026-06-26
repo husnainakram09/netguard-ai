@@ -8,6 +8,7 @@ import Dashboard        from './pages/Dashboard'
 import LiveScanner      from './pages/LiveScanner'
 import BatchAnalyzer    from './pages/BatchAnalyzer'
 import About            from './pages/About'
+import { apiUrl }       from './config/api'
 
 const PAGES = {
   dashboard: Dashboard,
@@ -43,7 +44,7 @@ export default function App() {
     try {
       const c = new AbortController()
       const t = setTimeout(() => c.abort(), 4000)
-      const r = await fetch('http://localhost:5000/api/health', { signal: c.signal })
+      const r = await fetch(apiUrl('/api/health'), { signal: c.signal })
       clearTimeout(t)
       setModelStatus(r.ok)
     } catch {
@@ -52,7 +53,7 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    checkHealth()
+    // checkHealth()
     const id = setInterval(checkHealth, 30_000)
     return () => clearInterval(id)
   }, [checkHealth])

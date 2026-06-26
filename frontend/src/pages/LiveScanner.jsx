@@ -4,6 +4,7 @@ import {
   Shuffle, Target, ShieldAlert, Shield,
   Cpu, AlertTriangle, ChevronRight, Zap,
 } from 'lucide-react'
+import { apiUrl } from '../config/api'
 
 /* ─── Field metadata ────────────────────────────────────────── */
 const FIELDS = [
@@ -577,7 +578,7 @@ export default function LiveScanner() {
 
     try {
       const [apiRes] = await Promise.all([
-        fetch('http://localhost:5000/api/predict', {
+        fetch(apiUrl('/api/predict'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ features }),

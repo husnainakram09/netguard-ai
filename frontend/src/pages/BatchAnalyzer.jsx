@@ -6,6 +6,7 @@ import {
   RefreshCw, ShieldAlert, Shield, AlertTriangle,
   CheckCircle, BarChart3, Layers,
 } from 'lucide-react'
+import { apiUrl } from '../config/api'
 
 /* ─── Feature column names (match train_model.py exactly) ───── */
 const FEATURE_COLS = [
@@ -23,34 +24,6 @@ const FEATURE_COLS = [
 
 /* Short names for table headers */
 const COL_SHORT = ['Duration', 'Fwd', 'Bwd', 'Bytes/s', 'Pkts/s', 'IAT Mean', 'FwdPSH', 'BwdPSH', 'FwdURG', 'BwdURG']
-
-/* ─── Demo data ─────────────────────────────────────────────── */
-/* 20 rows: 12 attacks + 8 benign, interleaved                  */
-/* Values are real CICIDS 2017 test-set flows from model eval    */
-const mkRow = (...vals) => Object.fromEntries(FEATURE_COLS.map((k, i) => [k, String(vals[i])]))
-
-const DEMO_ROWS = [
-  mkRow(72879388, 8, 4, 159.9,    0.20, 6625398.9, 0, 0, 0, 0), // ATTACK 99.98%
-  mkRow(80242602, 8, 7, 145.3,    0.20, 5731614.4, 0, 0, 0, 0), // ATTACK 99.95%
-  mkRow(81387224, 5, 9, 143.5,    0.20, 6260555.7, 0, 0, 0, 0), // BENIGN 99.98%
-  mkRow(17472,    3, 5, 665464.7, 457.9, 2496.0,   0, 0, 0, 0), // ATTACK 100%
-  mkRow(9757556,  1, 5,   3.7,    0.60, 1951511.2, 0, 0, 0, 0), // BENIGN 100%
-  mkRow(68100000, 8, 4, 162.0,    0.20, 6200000,   0, 0, 0, 0), // ATTACK
-  mkRow(75400000, 8, 6, 155.5,    0.20, 6400000,   0, 0, 0, 0), // ATTACK
-  mkRow(392942,   1, 5,  91.6,   15.30,   78588.4, 0, 0, 0, 0), // BENIGN
-  mkRow(82000000, 7, 7, 143.0,    0.20, 5900000,   0, 0, 0, 0), // ATTACK
-  mkRow(69800000, 8, 4, 160.4,    0.20, 6380000,   0, 0, 0, 0), // ATTACK
-  mkRow(83000000, 5, 8, 145.0,    0.20, 6400000,   0, 0, 0, 0), // BENIGN
-  mkRow(77600000, 8, 5, 157.2,    0.20, 6190000,   0, 0, 0, 0), // ATTACK
-  mkRow(10200000, 1, 5,   4.5,    0.50, 2100000,   0, 0, 0, 0), // BENIGN
-  mkRow(71200000, 8, 4, 158.7,    0.20, 6490000,   0, 0, 0, 0), // ATTACK
-  mkRow(410000,   1, 5,  95.0,   15.00,   82000,   0, 0, 0, 0), // BENIGN
-  mkRow(79000000, 8, 7, 146.7,    0.20, 5800000,   0, 0, 0, 0), // ATTACK
-  mkRow(85000000, 5, 9, 142.0,    0.20, 6300000,   0, 0, 0, 0), // BENIGN
-  mkRow(15200,    3, 5, 690000,  475.0,    2200,   0, 0, 0, 0), // ATTACK (burst)
-  mkRow(19800,    4, 4, 542000,  348.0,    3600,   0, 0, 0, 0), // ATTACK (burst)
-  mkRow(8700000,  2, 5,   5.2,    0.70, 1850000,   0, 0, 0, 0), // BENIGN
-]
 
 /* ─── Helpers ───────────────────────────────────────────────── */
 const sleep = ms => new Promise(r => setTimeout(r, ms))
@@ -127,7 +100,7 @@ const pv = {
 ═══════════════════════════════════════════════════════════════ */
 
 /* ── Upload zone ──────────────────────────────────────────────── */
-function UploadZone({ onFile, onDemo }) {
+function UploadZone({ onFile }) {
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef(null)
 
@@ -141,10 +114,10 @@ function UploadZone({ onFile, onDemo }) {
   const handleChange = e => { const f = e.target.files?.[0]; if (f) onFile(f) }
 
   return (
-    <div className="grid xl:grid-cols-3 gap-4 items-stretch">
+    <div className="grid gap-4 items-stretch">
       {/* Drop zone — 2/3 */}
       <motion.div
-        className="xl:col-span-2 relative flex flex-col items-center justify-center gap-3 py-10 px-6 rounded-lg cursor-pointer text-center"
+        className="relative flex flex-col items-center justify-center gap-3 py-10 px-6 rounded-lg cursor-pointer text-center"
         style={{
           border: `2px dashed ${dragging ? '#00d4ff' : 'rgba(0,212,255,0.35)'}`,
           background: dragging ? 'rgba(0,212,255,0.04)' : 'transparent',
@@ -216,13 +189,13 @@ function UploadZone({ onFile, onDemo }) {
           <Layers size={20} style={{ color: '#ffaa00' }} />
         </div>
         <div>
-          <p className="text-sm font-semibold mb-1" style={{ color: '#e2e8f0' }}>Use Demo Data</p>
+          <p className="text-sm font-semibold mb-1" style={{ color: '#e2e8f0' }}>Upload Required</p>
           <p className="text-xs" style={{ color: '#64748b' }}>
-            20 real CICIDS 2017 flows — mix of DDoS attacks and normal traffic
+            Upload a CSV to run the backend classifier on real flow data.
           </p>
         </div>
         <button
-          onClick={onDemo}
+          disabled
           className="w-full py-2 rounded text-xs font-data font-semibold tracking-wide transition-all"
           style={{
             background: 'rgba(255,170,0,0.08)',
@@ -230,7 +203,7 @@ function UploadZone({ onFile, onDemo }) {
             color: '#ffaa00',
           }}
         >
-          Load 20 Sample Flows
+          No Sample Data
         </button>
       </div>
     </div>
@@ -608,16 +581,6 @@ export default function BatchAnalyzer() {
     })
   }, [])
 
-  /* Load demo data */
-  const handleDemo = useCallback(() => {
-    setRows(DEMO_ROWS)
-    setFileName('demo-cicids-2017.csv')
-    setColWarn(false)
-    setPhase('preview')
-    setResults(null)
-    setErrMsg(null)
-  }, [])
-
   /* Reset to idle */
   const handleClear = () => {
     setPhase('idle'); setRows([]); setFileName('')
@@ -640,7 +603,7 @@ export default function BatchAnalyzer() {
     try {
       const flows = rows.map(rowToVec)
       const [apiRes] = await Promise.all([
-        fetch('http://localhost:5000/api/analyze-batch', {
+        fetch(apiUrl('/api/analyze-batch'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ flows }),
@@ -675,7 +638,7 @@ export default function BatchAnalyzer() {
         <div>
           <h2 className="text-lg font-semibold" style={{ color: '#e2e8f0' }}>Batch Analyzer</h2>
           <p className="text-xs mt-0.5" style={{ color: '#64748b' }}>
-            Upload a CSV or use demo data to classify multiple network flows at once.
+            Upload a CSV to classify multiple network flows with the backend model.
           </p>
         </div>
         {phase === 'done' && (
@@ -696,7 +659,7 @@ export default function BatchAnalyzer() {
         {/* ── IDLE phase ─────────────────────────────────────── */}
         {phase === 'idle' && (
           <motion.div key="idle" variants={pv} initial="enter" animate="visible" exit="exit">
-            <UploadZone onFile={handleFile} onDemo={handleDemo} />
+            <UploadZone onFile={handleFile} />
           </motion.div>
         )}
 

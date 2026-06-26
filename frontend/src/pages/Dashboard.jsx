@@ -7,6 +7,7 @@ import {
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
 } from 'recharts'
+import { apiUrl } from '../config/api'
 
 /* ─── Framer-motion variants ────────────────────────────────── */
 const fadeUp = {
@@ -32,7 +33,7 @@ const STAT_CARDS = [
   {
     apiKey: 'total_analyzed',
     label: 'Total Flows Analyzed',
-    sub: 'CICIDS Friday session',
+    sub: 'MongoDB live records',
     Icon: Activity,
     color: '#00d4ff',
     shadow: '0 0 0 1px rgba(0,212,255,0.22), 0 0 28px rgba(0,212,255,0.16), 0 8px 32px rgba(0,0,0,0.55)',
@@ -43,7 +44,7 @@ const STAT_CARDS = [
   {
     apiKey: 'attacks_blocked',
     label: 'Attacks Detected',
-    sub: 'DDoS flows classified',
+    sub: 'MongoDB attack records',
     Icon: ShieldAlert,
     color: '#ff4444',
     shadow: '0 0 0 1px rgba(255,68,68,0.22), 0 0 28px rgba(255,68,68,0.16), 0 8px 32px rgba(0,0,0,0.55)',
@@ -63,9 +64,9 @@ const STAT_CARDS = [
     fmt: v => `${(Number(v) * 100).toFixed(2)}%`,
   },
   {
-    apiKey: 'attacks_blocked',
+    apiKey: 'attacks_today',
     label: 'Threats Blocked Today',
-    sub: 'Auto-intercepted by IDS',
+    sub: 'Live scans recorded by backend',
     Icon: Zap,
     color: '#ffaa00',
     shadow: '0 0 0 1px rgba(255,170,0,0.22), 0 0 28px rgba(255,170,0,0.16), 0 8px 32px rgba(0,0,0,0.55)',
@@ -75,21 +76,31 @@ const STAT_CARDS = [
   },
 ]
 
-/* ─── Mock threat feed ──────────────────────────────────────── */
-/*   Values taken from actual CICIDS 2017 test-set flows         */
-/*   that the RandomForest classifier classified in training.     */
-const MOCK_FEED = [
-  { id: 1, ts: '14:32:07.441', duration: '72.879 s',  pps:   0.20, bps:    159.9, status: 'ATTACK' },
-  { id: 2, ts: '14:31:52.118', duration: '80.243 s',  pps:   0.20, bps:    145.3, status: 'ATTACK' },
-  { id: 3, ts: '14:31:18.307', duration: '81.387 s',  pps:   0.20, bps:    143.5, status: 'BENIGN' },
-  { id: 4, ts: '14:30:44.892', duration: '0.017 s',   pps: 457.90, bps: 665464.7, status: 'ATTACK' },
-  { id: 5, ts: '14:30:21.550', duration: '9.758 s',   pps:   0.60, bps:      3.7, status: 'BENIGN' },
-  { id: 6, ts: '14:29:55.003', duration: '18.951 s',  pps:   0.20, bps:    145.2, status: 'ATTACK' },
-  { id: 7, ts: '14:29:30.771', duration: '0.393 s',   pps:  15.30, bps:     91.6, status: 'BENIGN' },
-  { id: 8, ts: '14:28:59.214', duration: '17.472 s',  pps:   0.20, bps:    159.9, status: 'ATTACK' },
-]
-
 const PIE_COLORS = ['#ff4444', '#00ff88']
+
+function formatTimestamp(ts) {
+  if (!ts) return '-'
+  const d = new Date(ts)
+  if (Number.isNaN(d.getTime())) return '-'
+  return d.toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    fractionalSecondDigits: 3,
+  })
+}
+
+function formatDuration(seconds) {
+  const n = Number(seconds)
+  if (!Number.isFinite(n)) return '-'
+  return `${n.toFixed(n >= 10 ? 3 : 4)} s`
+}
+
+function formatRate(value) {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return '-'
+  return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : n.toFixed(n >= 100 ? 1 : 2)
+}
 
 /* ─── Sub-components ────────────────────────────────────────── */
 
@@ -163,7 +174,7 @@ function ChartTooltip({ active, payload, total }) {
         {Number(value).toLocaleString()}
       </p>
       <p className="font-data text-xs mt-0.5" style={{ color: '#64748b' }}>
-        {((value / total) * 100).toFixed(1)}% of total
+        {total ? ((value / total) * 100).toFixed(1) : '0.0'}% of total
       </p>
     </div>
   )
@@ -171,30 +182,23 @@ function ChartTooltip({ active, payload, total }) {
 
 /* ─── Main component ────────────────────────────────────────── */
 
-const FALLBACK_STATS = {
-  total_analyzed: 15420,
-  attacks_blocked: 342,
-  accuracy: 0.9989,
-  model_name: 'NetGuard-IDS v1.0',
-  dataset: 'CICIDS 2017',
-}
-
 export default function Dashboard() {
   const [stats, setStats]     = useState(null)
   const [loading, setLoading] = useState(true)
   const [offline, setOffline] = useState(false)
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/stats')
+    fetch(apiUrl('/api/stats'))
       .then(r => { if (!r.ok) throw new Error(r.statusText); return r.json() })
       .then(data => { setStats(data); setLoading(false) })
-      .catch(() => { setStats(FALLBACK_STATS); setOffline(true); setLoading(false) })
+      .catch(() => { setStats(null); setOffline(true); setLoading(false) })
   }, [])
 
-  const total   = stats?.total_analyzed  ?? FALLBACK_STATS.total_analyzed
-  const attacks = stats?.attacks_blocked ?? FALLBACK_STATS.attacks_blocked
-  const benign  = total - attacks
-  const atkPct  = ((attacks / total) * 100).toFixed(1)
+  const total   = stats?.total_analyzed  ?? 0
+  const attacks = stats?.attacks_blocked ?? 0
+  const benign  = stats?.benign ?? Math.max(total - attacks, 0)
+  const atkPct  = total ? ((attacks / total) * 100).toFixed(1) : '0.0'
+  const feedRows = stats?.recent_flows ?? []
 
   const chartData = [
     { name: 'Attacks', value: attacks, fill: PIE_COLORS[0] },
@@ -218,7 +222,7 @@ export default function Dashboard() {
         >
           <AlertTriangle size={13} />
           <span>
-            Backend offline — showing cached data.&nbsp;
+            Backend offline or MongoDB unavailable.&nbsp;
             <span style={{ color: '#94a3b8' }}>
               Start Flask:&nbsp;
             </span>
@@ -296,7 +300,7 @@ export default function Dashboard() {
             <div>
               <h3 className="text-sm font-semibold" style={{ color: '#e2e8f0' }}>Threat Feed</h3>
               <p className="text-xs mt-0.5" style={{ color: '#64748b' }}>
-                Real CICIDS 2017 test-set flows · confidence ≥ 97%
+                Live classifications stored in MongoDB
               </p>
             </div>
             <div className="flex items-center gap-1.5 text-xs font-data" style={{ color: '#00ff88' }}>
@@ -326,7 +330,7 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {MOCK_FEED.map((row, i) => (
+                {feedRows.map((row, i) => (
                   <motion.tr
                     key={row.id}
                     initial={{ opacity: 0, x: -10 }}
@@ -335,12 +339,12 @@ export default function Dashboard() {
                   >
                     <td>
                       <span className="font-data text-xs" style={{ color: '#64748b' }}>
-                        {row.ts}
+                        {formatTimestamp(row.ts)}
                       </span>
                     </td>
                     <td>
                       <span className="font-data text-xs" style={{ color: '#94a3b8' }}>
-                        {row.duration}
+                        {formatDuration(row.duration)}
                       </span>
                     </td>
                     <td>
@@ -348,9 +352,7 @@ export default function Dashboard() {
                         className="font-data text-xs"
                         style={{ color: row.pps > 100 ? '#ff8888' : '#94a3b8' }}
                       >
-                        {row.pps >= 100
-                          ? row.pps.toFixed(1)
-                          : row.pps.toFixed(2)}
+                        {formatRate(row.pps)}
                       </span>
                     </td>
                     <td>
@@ -358,14 +360,23 @@ export default function Dashboard() {
                         className="font-data text-xs"
                         style={{ color: row.bps > 10000 ? '#ff8888' : '#94a3b8' }}
                       >
-                        {row.bps >= 1000
-                          ? `${(row.bps / 1000).toFixed(1)}k`
-                          : row.bps.toFixed(1)}
+                        {formatRate(row.bps)}
                       </span>
                     </td>
                     <td><StatusBadge status={row.status} /></td>
                   </motion.tr>
                 ))}
+                {!loading && feedRows.length === 0 && (
+                  <tr>
+                    <td colSpan={5}>
+                      <span className="font-data text-xs" style={{ color: '#64748b' }}>
+                        {stats?.live_db?.connected
+                          ? 'No live classifications stored in MongoDB yet.'
+                          : 'MongoDB is not connected. Start MongoDB to store and show live attacks.'}
+                      </span>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -512,27 +523,27 @@ export default function Dashboard() {
               },
               {
                 label: 'Training Accuracy',
-                value: '99.89%',
+                value: loading ? 'â€”' : `${((stats?.accuracy ?? 0) * 100).toFixed(2)}%`,
                 color: '#00ff88',
               },
               {
                 label: 'Features Used',
-                value: '10',
+                value: loading ? 'â€”' : String(stats?.feature_count ?? 0),
                 color: '#e2e8f0',
               },
               {
                 label: 'Algorithm',
-                value: 'Random Forest',
+                value: loading ? 'â€”' : (stats?.algorithm ?? 'Unknown'),
                 color: '#e2e8f0',
               },
               {
                 label: 'Training Rows',
-                value: '180,568',
+                value: loading ? 'â€”' : Number(stats?.training_rows ?? 0).toLocaleString(),
                 color: '#e2e8f0',
               },
               {
                 label: 'Test Rows',
-                value: '45,143',
+                value: loading ? 'â€”' : Number(stats?.test_rows ?? 0).toLocaleString(),
                 color: '#e2e8f0',
               },
             ].map(row => (
